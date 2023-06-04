@@ -95,3 +95,33 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_trace(void)
+{
+  int bits;
+
+  if(argint(0, &bits) < 0)
+    return -1;
+  
+  myproc()->trace_bit = bits;
+  return 0;
+}
+
+uint64
+sys_sysinfo(void)
+{
+  // just a virtual address, need to use `copyout` mechanism
+  uint64 addr;
+  struct proc *p = myproc();
+
+  if(argaddr(0, &addr) < 0 || (addr & 0xf))
+    return -1;
+  
+  uint64 free_size = count_free();
+  uint64 proc_num = proc_number();
+  copyout(p->pagetable, addr, (char *)(&free_size), 8);
+  copyout(p->pagetable, addr + 8, (char *)(&proc_num), 8);
+
+  return 0;
+}

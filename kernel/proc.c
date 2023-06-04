@@ -288,6 +288,7 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+  np->trace_bit = p->trace_bit;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -425,6 +426,16 @@ wait(uint64 addr)
     // Wait for a child to exit.
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
+}
+
+uint64 proc_number(void){
+  struct proc *np;
+  uint64 ret = 0;
+  for(np = proc; np < &proc[NPROC]; np++)
+    if(np->state != UNUSED)
+      ret ++;
+
+  return ret;
 }
 
 // Per-CPU process scheduler.
