@@ -75,16 +75,6 @@ sys_sleep(void)
   return 0;
 }
 
-
-#ifdef LAB_PGTBL
-int
-sys_pgaccess(void)
-{
-  // lab pgtbl: your code here.
-  return 0;
-}
-#endif
-
 uint64
 sys_kill(void)
 {
@@ -107,3 +97,30 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
+#ifdef LAB_PGTBL
+int
+sys_pgaccess(void)
+{
+  uint64 first_addr;
+  int number_to_take;
+  uint64 user_addr_record;
+  
+  if(argint(1, &number_to_take) < 0)
+    return -1;
+  if(argaddr(0, &first_addr) < 0)
+    return -1;
+  if(argaddr(2, &user_addr_record) < 0)
+    return -1;
+
+  unsigned int ret_bits = 0;
+  pagetable_t now_prco_pgtbl = myproc()->pagetable;
+
+  for(int i=0;i<number_to_take;i++,first_addr+=PGSIZE)
+    ret_bits |= ((unsigned int)walk4access(now_prco_pgtbl, first_addr))<<i;
+  
+  copyout(now_prco_pgtbl, user_addr_record, (char *)&ret_bits, 4);
+  return 0;
+}
+#endif

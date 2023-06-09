@@ -97,6 +97,34 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
   return &pagetable[PX(0, va)];
 }
 
+void 
+vmprint(pagetable_t pagetable){
+  printf("page table %p\n",(uint64)pagetable);
+
+  for(int outer = 0; outer < 512; outer ++){
+    pte_t *outer_pte = &pagetable[outer];
+    if(*outer_pte & PTE_V){
+      printf(" ..%d: pte %p pa %p\n", outer, *outer_pte, PTE2PA(*outer_pte));
+      pagetable_t middl_pgtbl = (pagetable_t)PTE2PA(*outer_pte);
+
+      for(int middl = 0; middl < 512; middl ++){
+        pte_t *middl_pte = &middl_pgtbl[middl];
+        if(*middl_pte & PTE_V){
+          printf(" ....%d: pte %p pa %p\n", middl, *middl_pte, PTE2PA(*middl_pte));
+          pagetable_t inner_pgtbl = (pagetable_t)PTE2PA(*middl_pte);
+
+          for(int inner = 0; inner < 512; inner ++){
+            pte_t *inner_pte = &inner_pgtbl[inner];
+            if(*inner_pte & PTE_V){
+              printf(" ......%d: pte %p pa %p\n", inner, *inner_pte, PTE2PA(*inner_pte));
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 // Look up a virtual address, return the physical address,
 // or 0 if not mapped.
 // Can only be used to look up user pages.
@@ -116,8 +144,34 @@ walkaddr(pagetable_t pagetable, uint64 va)
     return 0;
   if((*pte & PTE_U) == 0)
     return 0;
+  // user access this address
+  *pte |= PTE_A; 
+
   pa = PTE2PA(*pte);
   return pa;
+}
+
+uint64
+walk4access(pagetable_t pagetable, uint64 va)
+{
+  if(va >= MAXVA)
+    panic("walk");
+
+  for(int level = 2; level > 0; level--) {
+    pte_t *pte = &pagetable[PX(level, va)];
+    if(*pte & PTE_V) {
+      pagetable = (pagetable_t)PTE2PA(*pte);
+    } else {
+      return 0;
+      // if there's not a correspond mapped pages, we return 0;
+    }
+  }
+  
+  pte_t *final_leaf = &pagetable[PX(0, va)];
+  uint64 ret = (*final_leaf & PTE_A) >> 6;
+  if(ret)
+    *final_leaf ^= PTE_A;
+  return ret;
 }
 
 // add a mapping to the kernel page table.
