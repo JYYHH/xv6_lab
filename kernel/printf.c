@@ -132,3 +132,15 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+
+void 
+backtrace(void){
+  printf("backtrace:\n");
+  uint64 now_pos = r_fp(); // frame_pointer
+  while(now_pos < PGROUNDUP(now_pos)){
+    // printf("%p's Upper_Bound = %p\n", now_pos, PGROUNDUP(now_pos));
+    printf("%p\n", *((uint64 *)(now_pos - 8)));
+    now_pos = *((uint64 *)(now_pos - 16));
+  }
+}
