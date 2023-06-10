@@ -1,0 +1,20 @@
+$ make qemu-gdb
+(26.6s) 
+== Test   simple == 
+  simple: OK 
+== Test   three == 
+  three: OK 
+== Test   file == 
+  file: OK 
+== Test usertests == 
+$ make qemu-gdb
+(436.4s) 
+== Test   usertests: copyin == 
+  usertests: copyin: OK 
+== Test   usertests: copyout == 
+  usertests: copyout: OK 
+== Test   usertests: all tests == 
+  usertests: all tests: OK 
+== Test time == 
+time: OK 
+Score: 110/110
