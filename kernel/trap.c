@@ -65,7 +65,35 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
+  }
+  else if (r_scause() == 0xF){
+    // Page Fault Caused by Write
+
+    uint64 fault_page = PGROUNDDOWN(r_stval());
+    // printf("%p\n", r_stval());
+    if (fault_page < KERNBASE){ // user can't access kernel memory
+      if (realloc_for_cow(p->pagetable, fault_page, 1) < 0)
+        p->killed = 1;
+    }
+    else
+      p->killed = 1;
+  }
+  else if (r_scause() == 13){ //read
+    if (r_stval() >= KERNBASE || r_stval() >= p->sz) 
+    // here must be KERNBASE, for user mode can not read address above this
+    // also contains the pagetable_size
+      p->killed = 1;
+    else if(r_stval() < p->trapframe->sp && r_stval() >= p->trapframe->sp - PGSIZE)
+    // blocked area
+      // printf("%p %p\n", r_stval(), p->trapframe->sp), 
+      p->killed = 1;
+  }
+  else if (r_scause() == 12){
+    // page fault with executable addr
+    // printf("I know it's sbrkbugs! please!\n");
+    p->killed = 1;
+  }
+  else if((which_dev = devintr()) != 0){
     // ok
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
