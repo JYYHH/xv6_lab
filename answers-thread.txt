@@ -1,0 +1,40 @@
+Because It's unsafe to manipulate the same gobal data entry through multiple threads.
+
+1. version 1 for ph: (add lock to both put and get)
+    root@96da0e319952:~/xv6-riscv# ./ph 1
+    100000 puts, 7.354 seconds, 13598 puts/second
+    0: 0 keys missing
+    100000 gets, 7.338 seconds, 13628 gets/second
+    root@96da0e319952:~/xv6-riscv# ./ph 2
+    100000 puts, 4.942 seconds, 20233 puts/second
+    0: 0 keys missing
+    1: 0 keys missing
+    200000 gets, 9.790 seconds, 20428 gets/second
+
+    - speed up rate (on put and get): (1.4879, 1.4990)
+
+2. version 2 for ph: (only add lock inside put, using the fact that get doesn't change the data in memory)
+    root@96da0e319952:~/xv6-riscv# ./ph 1
+    100000 puts, 8.634 seconds, 11582 puts/second
+    0: 0 keys missing
+    100000 gets, 7.826 seconds, 12779 gets/second
+    root@96da0e319952:~/xv6-riscv# ./ph 2
+    100000 puts, 5.698 seconds, 17549 puts/second
+    1: 0 keys missing
+    0: 0 keys missing
+    200000 gets, 9.637 seconds, 20752 gets/second
+
+    - speed up rate (on put and get): (1.5152, 1.6239)
+
+3. version 3 (final version) for ph: (split the lock into `change value lock` and `insert lock`, using the observation that these two operations do not take effect on the other)
+    root@96da0e319952:~/xv6-riscv# ./ph 1
+    100000 puts, 7.200 seconds, 13890 puts/second
+    0: 0 keys missing
+    100000 gets, 7.246 seconds, 13800 gets/second
+    root@96da0e319952:~/xv6-riscv# ./ph 2
+    100000 puts, 3.592 seconds, 27838 puts/second
+    0: 0 keys missing
+    1: 0 keys missing
+    200000 gets, 6.967 seconds, 28708 gets/second
+
+    - speed up rate (on put and get): (2.0042, 2.0803)
