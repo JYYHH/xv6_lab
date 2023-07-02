@@ -291,8 +291,10 @@ ilock(struct inode *ip)
   struct buf *bp;
   struct dinode *dip;
 
-  if(ip == 0 || ip->ref < 1)
-    panic("ilock");
+  if(ip == 0)
+    panic("ilock: ip = NULL");
+  if(ip->ref < 1)
+    panic("ilock: ip->ref < 1");
 
   acquiresleep(&ip->lock);
 
@@ -316,8 +318,12 @@ ilock(struct inode *ip)
 void
 iunlock(struct inode *ip)
 {
-  if(ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
-    panic("iunlock");
+  if(ip == 0)
+    panic("iunlock: NULL");
+  if(!holdingsleep(&ip->lock))
+    panic("iunlock: not holding");
+  if(ip->ref < 1)
+    panic("iunlock: ref < 1");
 
   releasesleep(&ip->lock);
 }
@@ -400,6 +406,33 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
+  bn -= NINDIRECT;
+
+  if(bn < N2INDIRECT){
+    // Load double indirect block
+    int bfirst = bn / NINDIRECT, bsecond = bn - bfirst * NINDIRECT;
+
+    // get first layer
+    if((addr = ip->addrs[MORE]) == 0)
+      ip->addrs[MORE] = addr = balloc(ip->dev);
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    if((addr = a[bfirst]) == 0){
+      a[bfirst] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    brelse(bp);
+
+    // get second layer
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    if((addr = a[bsecond]) == 0){
+      a[bsecond] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    brelse(bp);
+    return addr;
+  }
 
   panic("bmap: out of range");
 }
@@ -430,6 +463,32 @@ itrunc(struct inode *ip)
     brelse(bp);
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
+  }
+
+  if(ip->addrs[MORE]){
+    struct buf *bp_ind;
+    uint *a_ind;
+    
+    bp_ind = bread(ip->dev, ip->addrs[MORE]);
+    a_ind = (uint*)bp_ind->data;
+    
+    for(j = 0; j < NINDIRECT; j++)
+      if(a_ind[j]){
+        bp = bread(ip->dev, a_ind[j]);
+        a = (uint*)bp->data;
+
+        for(i = 0; i < NINDIRECT; i++)
+          if(a[i])
+            bfree(ip->dev, a[i]);
+        
+        brelse(bp);
+        bfree(ip->dev, a_ind[j]);
+      }
+
+    brelse(bp_ind);
+    bfree(ip->dev, ip->addrs[MORE]);
+
+    ip->addrs[MORE] = 0;
   }
 
   ip->size = 0;

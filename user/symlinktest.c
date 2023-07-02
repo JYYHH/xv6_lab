@@ -94,7 +94,7 @@ testsymlink(void)
   if(r < 0)
     fail("symlink a -> b failed");
 
-  r = open("/testsymlink/b", O_RDWR);
+  r = open("/testsymlink/b", O_RDWR | 0x800);
   if(r >= 0)
     fail("Should not be able to open b (cycle b->a->b->..)\n");
   

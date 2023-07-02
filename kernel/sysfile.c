@@ -330,6 +330,39 @@ sys_open(void)
     return -1;
   }
 
+  // add part to recognize SYMLINK file
+  if (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)){
+    int cnt = 12;
+    while(cnt){
+      if (readi(ip, 0, (uint64)path, 0, ip->size) != ip->size)
+        panic("sys_open: read symlink file failed"); // read the link path to 'path'
+      
+      iunlockput(ip);
+      ip = namei(path); // path to inode
+      if (ip == 0){ // file does not exist
+        end_op();
+        return -1; 
+      }
+
+      ilock(ip);
+      
+      if (ip->type != T_SYMLINK)
+        break;
+      
+      cnt --;
+    }
+
+    // if (omode & 0x800)
+    //   printf("CNT = %d\n", cnt);
+
+    if (cnt == 0){ // circle happens 
+      iunlockput(ip);
+      end_op();
+      return -1; 
+    }
+  }
+
+
   if(ip->type == T_DEVICE){
     f->type = FD_DEVICE;
     f->major = ip->major;
@@ -482,5 +515,33 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+uint64 
+sys_symlink(void){
+  char path[MAXPATH], target[MAXPATH];
+  struct inode *ip;
+
+  if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+    return -1;
+
+  begin_op();
+
+  ip = create(path, T_SYMLINK, 0, 0); // create an empty SYMLINK file
+  if (ip == 0){
+    end_op();
+    return -1;
+  }
+
+  // ilock(ip);
+  // write the string "target" into it
+  // writei will automatically update the ip->size
+  if (writei(ip, 0, (uint64)target, 0, strlen(target)) != strlen(target)) 
+    panic("symlink: writei"); 
+  iunlockput(ip);
+
+  end_op();
+
   return 0;
 }
